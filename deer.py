@@ -11,7 +11,7 @@ import jax.numpy as jnp
 import jax.random as jr
 import jax.scipy.linalg as jsl
 
-from lle import wrapper_estimate_lle_from_jacobians, estimate_lle_from_jacobians
+from python.old.lle import wrapper_estimate_lle_from_jacobians, estimate_lle_from_jacobians
 
 @jax.vmap
 def full_mat_operator(q_i, q_j):

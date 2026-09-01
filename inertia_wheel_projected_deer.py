@@ -28,8 +28,7 @@ global L2 norm, and then projected onto the feasible policy-parameter set:
     theta       <- argmin_z 0.5 * ||z - theta_trial||_2^2
                    subject to h_i(z) >= feasibility_margin.
 
-Thus the constraints are enforced by projected gradient descent (PGD), not by
-adding a log-barrier term to the objective. No Adam or momentum is used.
+Thus the constraints are enforced by projected gradient descent (PGD). No Adam or momentum is used.
 
 Required files/packages:
     - deer.py containing deer_alg, available on the Python path
