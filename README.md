@@ -2,7 +2,7 @@
 
 This repository contains the code and numerical experiments for **“Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers.”**
 
-We develop a time-parallel framework for optimizing the parameters of structured nonlinear feedback controllers. The forward state and backward costate recursions are reformulated as root-finding problems and evaluated using a two-pass Gauss-Newton fixed-point method based on DEER. This reduces the parallel depth of trajectory evaluation to $O(\log T)$ while retaining $O(T)$ total work for a horizon of length $T$.
+We develop a time-parallel framework for optimizing the parameters of structured nonlinear feedback controllers. The forward state and backward costate recursions are reformulated as root-finding problems and evaluated using a two-pass Gauss-Newton fixed-point method.
 
 ## Main contributions
 
