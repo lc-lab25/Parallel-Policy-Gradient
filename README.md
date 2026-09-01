@@ -1,31 +1,29 @@
 # Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers
 
-This repository contains the code and numerical experiments for **“Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers.”**
+| Nominal controller | Our method |
+|:---:|:---:|
+| ![Inertia-wheel pendulum unoptimized controller](img/base_croped.gif) | ![Inertia-wheel pendulum optimized by our method](img/opt_croped.gif) |
 
-We develop a time-parallel framework for optimizing the parameters of structured nonlinear feedback controllers. The forward state and backward costate recursions are reformulated as root-finding problems and evaluated using a two-pass Gauss-Newton fixed-point method.
+This repository contains the code and numerical experiments for **“Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers.”**
 
 ## Main contributions
 
 - A policy-gradient formulation for discrete-time control-affine nonlinear systems, which is consistent with the deterministic policy gradient in previous work and recovers the standard LQR policy gradient as a special case.
-- Develop a time-parallel policy-gradient method by parallelizing the evaluation of the state and costate trajectories.
+- A time-parallel policy-gradient method based on parallel state and costate trajectory evaluation.
 - Stability-based conditions for horizon-uniform convergence guarantees.
-- Parameter optimization evaluated on discrete-time LQR and the inertia-wheel pendulum.
+- Numerical evaluation on discrete-time LQR and an inertia-wheel pendulum with an IDA-PBC controller.
 
-## Inertia-wheel pendulum results
+## Main attractions
 
-| Gradient descent | Projected gradient descent |
-|:---:|:---:|
-| ![Inertia-wheel pendulum with gradient descent](img/inertia_wheel_gd.png) | ![Inertia-wheel pendulum with projected gradient descent](img/inertia_wheel_pgd.gif) |
-
-### Controller-parameter history
-
-![History of the optimized controller parameters](img/parameter_history.png)
-
-### Control-input comparison
-
-The optimized controller reduces the large transient control effort relative to the baseline controller.
-
-![Baseline and policy-gradient control inputs](img/control.png)
+| File | Description |
+|---|---|
+| `deer.py` | General Gauss-Newton trajectory solver \cite{gonzales2020}. |
+| `deer_LQR.py` | Implementation used for the LQR experiments. |
+| `deer_constant_k_convergence.py` | Constant-gain LQR convergence experiment. |
+| `inertia_wheel_pendulum.py` | Inertia-wheel pendulum model and baseline simulation. |
+| `inertia_wheel_policy_optimization_deer.py` | Monte Carlo with gradient descent. |
+| `inertia_wheel_projected_deer.py` | Monte Carlo with projected gradient descent. |
+| `test_time.py` | Timing experiment for sequential and parallel trajectory evaluation. |
 
 ## Method
 
@@ -41,18 +39,6 @@ Each policy-gradient iteration:
 2. evaluates the corresponding costate trajectory in parallel;
 3. combines the state and costate information to form the policy gradient; and
 4. updates the controller parameters using projected gradient descent (PGD).
-
-## Repository contents
-
-| File | Description |
-|---|---|
-| `deer.py` | General Gauss-Newton trajectory solver. |
-| `deer_LQR.py` | Implementation used for the LQR experiments. |
-| `deer_constant_k_convergence.py` | Constant-gain LQR convergence experiment. |
-| `inertia_wheel_pendulum.py` | Inertia-wheel pendulum model and baseline simulation. |
-| `inertia_wheel_policy_optimization_deer.py` | Monte Carlo with gradient descent. |
-| `inertia_wheel_projected_deer.py` | Monte Carlo with projected gradient descent. |
-| `test_time.py` | Timing experiment for sequential and parallel trajectory evaluation. |
 
 ## Requirements
 
