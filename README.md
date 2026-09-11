@@ -59,8 +59,6 @@ python inertia_wheel_projected_deer.py
 The scripts save plots, animations, optimized parameters, and NumPy result files in their respective result directories.
 
 ## Paper
-<iframe src="img\Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf" width="100%" height="600px" style="border: none;"></iframe>
-
 <object data="img\Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf" type="application/pdf" width="100%" height="600px">
     <p>This browser does not support inline PDFs. Please <a href="img\Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf">click here to download the PDF</a>.</p>
 </object>
