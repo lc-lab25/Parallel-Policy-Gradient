@@ -12,9 +12,13 @@
 <style>
   .ppg-page { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
   .ppg-header { margin-bottom: 18px; font-size: 14px; }
-  .ppg-lede { margin: 8px 0 4px; max-width: 70ch; line-height: 1.6; color: var(--muted-foreground); }
+  .ppg-lede { margin: 8px 0 4px; max-width: 70ch; line-height: 1.6;
+    color: light-dark(rgb(26 28 31 / 78%), rgb(255 255 255 / 70%)); }
   .ppg-footer { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 28px; padding-top: 12px;
-    border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 14px; }
+    border-top: 1px solid var(--border); color: light-dark(rgb(26 28 31 / 78%), rgb(255 255 255 / 70%)); font-size: 14px; }
+  .ppg-footer .btn-ghost { color: inherit; }
+  /* Darker link color in light mode keeps shell links above 4.5:1 contrast. */
+  .ppg-page a { color: light-dark(rgb(0 95 184), rgb(156 207 255)); }
 </style>
 </head>
 <body>
@@ -1181,6 +1185,7 @@ html>body{padding:0}</style>
   </details>
   <div class="gp-tooltip text-small" role="tooltip" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+  <script>if(!window.d3){const v=document.getElementById('gp-validation');v.hidden=false;v.textContent='The plotting library (D3) could not be loaded from cdn.jsdelivr.net, so the demo cannot run. Check your connection or content blocker, then reload.';}</script>
   <script id="gp-worker-source" type="text/plain">const PhaseExpressions = (() => {
   const functions = {sin:1,cos:1,tan:1,tanh:1,exp:1,log:1,sqrt:1,atan:1,sinh:1,cosh:1,pow:2};
   function parse(source) {
@@ -1656,6 +1661,8 @@ self.onmessage=async event=>{
   const storageKey='ppg-guess-dynamics-v1';
   function loadSaved(){try{return JSON.parse(localStorage.getItem(storageKey)||'null');}catch{return null;}}
   restore(loadSaved());
+  // Reopen long saved runs at iteration 0 instead of replaying them behind a hidden plot.
+  if(state.steps*state.iteration>5e6)state.iteration=0;
   function config(){const {iteration,k,visible,...c}=state;return c;}
   function validate(values){
     if(!values||typeof values!=='object'||Array.isArray(values))throw new Error('Expected a configuration object.');
@@ -1668,7 +1675,8 @@ self.onmessage=async event=>{
     }
   }
   function persist(){
-    try{localStorage.setItem(storageKey,JSON.stringify(state));}catch{}
+    // Save only completed work; a pending seek target would be replayed on every reload.
+    try{localStorage.setItem(storageKey,JSON.stringify({...state,iteration:snapshot?.iteration??0,k:snapshot?.k??state.k}));}catch{}
   }
   function reportError(error){if(error?.name==='AbortError')return;$('validation').hidden=false;$('validation').textContent=error?.message||String(error);}
   function cancelled(){const e=new Error('Superseded or stopped.');e.name='AbortError';return e;}
