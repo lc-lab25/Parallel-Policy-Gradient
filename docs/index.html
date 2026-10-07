@@ -1,0 +1,1914 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; img-src data:; worker-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Guess Dynamics · Discrete Phase Portrait</title>
+<meta name="description" content="Interactive demo: watch a Gauss–Newton (DEER) solver refine a guessed trajectory into the true closed-loop trajectory, from the Parallel Policy-Gradient project.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='none' stroke='%23339cff' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23339cff'/%3E%3C/svg%3E">
+
+<style>
+  .ppg-page { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+  .ppg-header { margin-bottom: 18px; font-size: 14px; }
+  .ppg-lede { margin: 8px 0 4px; max-width: 70ch; line-height: 1.6;
+    color: light-dark(rgb(26 28 31 / 78%), rgb(255 255 255 / 70%)); }
+  .ppg-footer { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 28px; padding-top: 12px;
+    border-top: 1px solid var(--border); color: light-dark(rgb(26 28 31 / 78%), rgb(255 255 255 / 70%)); font-size: 14px; }
+  .ppg-footer .btn-ghost { color: inherit; }
+  /* Darker link color in light mode keeps shell links above 4.5:1 contrast. */
+  .ppg-page a { color: light-dark(rgb(0 95 184), rgb(156 207 255)); }
+</style>
+</head>
+<body>
+<div class="ppg-page">
+<header class="ppg-header"><a href="https://github.com/lc-lab25/Parallel-Policy-Gradient">← Parallel Policy-Gradient on GitHub</a></header>
+<main>
+<style>:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+.cursor-interaction {
+  cursor: var(--cursor-interaction, pointer);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: var(--cursor-interaction, pointer);
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: var(--cursor-interaction, pointer);
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled="true"]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed="true"],
+  [aria-selected="true"],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type="file"]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type="color"] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type="date"],
+    [type="datetime-local"],
+    [type="month"],
+    [type="time"],
+    [type="week"]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: "";
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html>body{padding:0}</style>
+<div id="guess-phase-portrait">
+  <style>
+    #guess-phase-portrait { color: var(--foreground); position: relative; }
+    #guess-phase-portrait { --font-size-base: 16px; }
+    #guess-phase-portrait h1 { margin-bottom: 5px; }
+    #guess-phase-portrait .gp-settings, #guess-phase-portrait .gp-explanation { margin: 14px 0; }
+    #guess-phase-portrait summary { cursor: pointer; }
+    #guess-phase-portrait .gp-status { font-size: 14px; }
+    #guess-phase-portrait .gp-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; min-height: 38px; }
+    #guess-phase-portrait .gp-formula { overflow-wrap: anywhere; font-family: var(--font-mono); }
+    #guess-phase-portrait [hidden] { display: none !important; }
+    #guess-phase-portrait .gp-explanation p { line-height: 1.6; }
+    #guess-phase-portrait .gp-controls { margin: 12px 0; }
+    #guess-phase-portrait .gp-step-row { margin: 10px 0; }
+    #guess-phase-portrait .gp-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0; }
+    #guess-phase-portrait .gp-legend button { display: inline-flex; align-items: center; gap: 7px; background: transparent; border: 0; padding: 3px 0; color: var(--foreground); font: inherit; }
+    #guess-phase-portrait .gp-legend button[aria-pressed="false"] { opacity: .45; }
+    #guess-phase-portrait .gp-swatch { width: 22px; height: 0; border-top: 2px solid var(--swatch); display: inline-block; }
+    #guess-phase-portrait .gp-legend [data-series="current"] .gp-swatch { border-top-style: dashed; }
+    #guess-phase-portrait .gp-legend [data-series="truth"] .gp-swatch { border-top-style: dotted; }
+    #guess-phase-portrait .gp-plot { width: 100%; }
+    #guess-phase-portrait .gp-chart { display: block; overflow: visible; }
+    #guess-phase-portrait .gp-chart text { fill: var(--foreground); font-size: 12px; font-weight: 400; }
+    #guess-phase-portrait .gp-chart .domain { display: none; }
+    #guess-phase-portrait .gp-chart .tick line { stroke: var(--border); }
+    #guess-phase-portrait .gp-details { min-height: 26px; margin-top: 8px; }
+    #guess-phase-portrait .gp-tooltip { position: absolute; pointer-events: none; padding: 8px 10px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); z-index: 2; max-width: 280px; }
+    #guess-phase-portrait .gp-tooltip[hidden] { display: none; }
+    #guess-phase-portrait .gp-tooltip-row { display: flex; gap: 14px; justify-content: space-between; }
+    #guess-phase-portrait .gp-series-current { stroke: var(--viz-series-2); }
+    #guess-phase-portrait .gp-series-next { stroke: var(--viz-series-1); }
+    #guess-phase-portrait .gp-series-truth { stroke: var(--viz-series-3); }
+  </style>
+  <h1>Guess dynamics</h1>
+  <div id="gp-subtitle">Discrete phase portrait</div>
+  <p class="ppg-lede">Companion to <a href="https://github.com/lc-lab25/Parallel-Policy-Gradient/blob/main/img/Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf"><em>Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers</em></a>. Each policy-gradient iteration first evaluates the closed-loop state trajectory in parallel. This demo shows how a Gauss–Newton (DEER) solver turns a guessed trajectory into the true one, one update at a time.</p>
+  <div class="viz-controls">
+    <label class="form-label" for="gp-system">Closed-loop dynamics
+      <select id="gp-system" class="form-select"><option value="builtin">Built-in nonlinear spiral</option><option value="discrete">Custom discrete map</option><option value="ode">Custom ODE · forward Euler</option></select>
+    </label>
+  </div>
+  <div id="gp-equations" hidden>
+    <div class="viz-controls">
+      <label class="form-label" for="gp-eq1"><span id="gp-eq1-label">x₁ next =</span><textarea id="gp-eq1" class="form-control" rows="2" maxlength="500" spellcheck="false"></textarea></label>
+      <label class="form-label" for="gp-eq2"><span id="gp-eq2-label">x₂ next =</span><textarea id="gp-eq2" class="form-control" rows="2" maxlength="500" spellcheck="false"></textarea></label>
+    </div>
+    <div class="viz-row"><button class="btn btn-primary" id="gp-apply" type="button">Apply equations</button><span id="gp-equation-status" role="status"></span></div>
+    <p class="text-small">Enter the two right-hand sides. Use x1, x2, dt, rho, pi, e; + − * / ^ and parentheses. Functions: sin, cos, tan, tanh, exp, log, sqrt, atan, sinh, cosh, pow. Multiplication needs *.</p>
+    <div class="viz-controls">
+      <label class="form-label" for="gp-ex">Reference point e, coordinate 1<input id="gp-ex" class="form-control" type="number" min="-100000" max="100000" step="any" value="0"></label>
+      <label class="form-label" for="gp-ey">Reference point e, coordinate 2<input id="gp-ey" class="form-control" type="number" min="-100000" max="100000" step="any" value="0"></label>
+    </div>
+    <p class="text-small">The map is checked at e. Initialization around equilibrium uses this point; if it is not a fixed point, it is labeled as a reference instead.</p>
+  </div>
+  <div class="viz-controls gp-controls">
+    <label class="form-label" for="gp-method">Update rule
+      <select id="gp-method" class="form-select"><option value="gn">Gauss–Newton</option><option value="clipped">Clipped Gauss–Newton</option><option value="gd">Gradient descent</option></select>
+    </label>
+    <label class="form-label" for="gp-cap" data-method="clipped" hidden>Jacobian Frobenius-norm cap a
+      <input id="gp-cap" class="form-control" type="number" min="0.01" max="2" step="any" value="0.65">
+    </label>
+    <label class="form-label" for="gp-eta" data-method="gd" hidden>Gradient-descent learning rate η
+      <input id="gp-eta" class="form-control" type="number" min="0.000001" max="1" step="any" value="0.1">
+    </label>
+    <label class="form-label" for="gp-steps">Number of time steps N
+      <input id="gp-steps" class="form-control" type="number" min="1" max="1000000" step="1" value="18">
+    </label>
+    <label class="form-label" for="gp-dt">Time step Δt (time units)
+      <input id="gp-dt" class="form-control" type="number" min="0.000001" max="2" step="any" value="1">
+    </label>
+    <label class="form-label" for="gp-init">Guess initialization
+      <select id="gp-init" class="form-select">
+        <option value="equilibrium">Around equilibrium</option>
+        <option value="x0">Around x₀</option>
+        <option value="line">Along x₀ → equilibrium</option>
+        <option value="custom">Around a custom point</option>
+      </select>
+    </label>
+    <label class="form-label" for="gp-sigma">Gaussian spread σ (each coordinate)
+      <input id="gp-sigma" class="form-control" type="number" min="0" max="2" step="0.05" value="0">
+    </label>
+    <label class="form-label" for="gp-rho"><span id="gp-rho-label">One-unit spectral radius ρ:</span> <output id="gp-rho-value">0.78</output>
+      <input id="gp-rho" class="form-range" type="range" min="0.05" max="1.10" step="0.01" value="0.78">
+    </label>
+    <label class="form-label" for="gp-index">Highlighted time index k
+      <input id="gp-index" class="form-control" type="number" min="1" max="18" step="1" value="3">
+    </label>
+  </div>
+  <div class="gp-status" id="gp-time" aria-live="polite"></div>
+  <div class="gp-status" id="gp-stability" aria-live="polite"></div>
+  <details class="gp-settings"><summary>Initial state and random sample</summary>
+    <div class="viz-controls">
+      <label class="form-label" for="gp-x0x">Fixed initial state x₀, coordinate 1<input id="gp-x0x" class="form-control" type="number" min="-4" max="4" step="0.1" value="2.2"></label>
+      <label class="form-label" for="gp-x0y">Fixed initial state x₀, coordinate 2<input id="gp-x0y" class="form-control" type="number" min="-4" max="4" step="0.1" value="0.5"></label>
+      <label class="form-label" for="gp-centerx" data-custom hidden>Guess center, coordinate 1<input id="gp-centerx" class="form-control" type="number" min="-4" max="4" step="0.1" value="1"></label>
+      <label class="form-label" for="gp-centery" data-custom hidden>Guess center, coordinate 2<input id="gp-centery" class="form-control" type="number" min="-4" max="4" step="0.1" value="1"></label>
+      <label class="form-label" for="gp-seed">Random seed<input id="gp-seed" class="form-control" type="number" min="1" max="999999" step="1" value="42"></label>
+    </div>
+    <div class="viz-row"><button class="btn" id="gp-resample" type="button">New random sample</button><span class="text-small">Guesses at k ≥ 1 vary; ξ₀ always equals x₀.</span></div>
+  </details>
+  <div id="gp-validation" role="alert" class="text-destructive" hidden></div>
+  <div id="gp-numerics" role="status" class="text-destructive" hidden></div>
+  <div class="gp-progress"><span id="gp-compute" role="status" aria-live="polite"></span><button id="gp-stop" class="btn" type="button" hidden>Stop calculation</button></div>
+  <label class="form-label" for="gp-slider">Solver iteration: <output id="gp-slider-value">0</output><input id="gp-slider" class="form-range" type="range" min="0" max="1000" step="1" value="0"></label>
+  <div class="viz-row gp-step-row">
+    <button class="btn" id="gp-back" type="button">Previous update</button>
+    <label class="form-label" for="gp-jump">Solver iteration i<input class="form-control" id="gp-jump" type="number" min="0" max="1000" step="1" value="0"></label>
+    <span id="gp-iteration" class="tabular-nums" aria-live="polite"></span>
+    <button class="btn btn-primary" id="gp-forward" type="button">Next update</button>
+    <button class="btn" id="gp-reset" type="button">Back to initialization</button>
+    <span id="gp-error" class="tabular-nums"></span>
+    <span id="gp-loss" class="tabular-nums"></span>
+  </div>
+  <div class="gp-legend" aria-label="Trajectory legend">
+    <button type="button" data-series="current" aria-pressed="true"><span class="gp-swatch" style="--swatch:var(--viz-series-2)"></span>Current guess</button>
+    <button type="button" data-series="next" aria-pressed="true"><span class="gp-swatch" style="--swatch:var(--viz-series-1)"></span>Updated guess</button>
+    <button type="button" data-series="truth" aria-pressed="true"><span class="gp-swatch" style="--swatch:var(--viz-series-3)"></span>True trajectory</button>
+    <button type="button" data-series="corrections" aria-pressed="true"><span class="gp-swatch" style="--swatch:var(--viz-series-4)"></span>Solver corrections</button>
+  </div>
+  <div class="text-small" id="gp-sampling"></div>
+  <div class="gp-plot"><svg class="gp-chart" role="img" aria-labelledby="gp-chart-title gp-chart-description"><title id="gp-chart-title">Discrete state plane with trajectory guesses before and after one solver update</title><desc id="gp-chart-description">Connected points are indexed by physical time. Correction arrows connect the old and new guess at the same time index. The highlighted arrow shows the selected time index. Gray arrows show directions of the nonlinear one-step displacement.</desc></svg></div>
+  <div class="gp-details text-small tabular-nums" id="gp-details" aria-live="polite"></div>
+  <details class="gp-explanation"><summary>Read the portrait and update rule</summary>
+    <p>Connected points follow physical time k. Correction arrows connect the same time index before and after one solver iteration i.</p>
+    <p class="gp-formula" id="gp-rule"></p>
+    <p id="gp-rule-description"></p>
+    <p class="gp-formula">L(ξ) = ½ Σₖ₌₁ᴺ ‖rₖ‖², where rₖ = ξₖ − FΔt(ξₖ₋₁) and ξ₀ = x₀.</p>
+    <p>The learning rate η is an optimization parameter; Δt is the physical time step. Gradient descent uses all residuals from the current guess and updates every free point simultaneously. For k = N, the next-residual term is zero.</p>
+    <div id="gp-builtin-explanation">
+    <p class="gp-formula">Fh(x) = ρʰ R(0.4h + b(h)‖x‖²)x, h = Δt</p>
+    <p class="gp-formula">b(h) = 0.18 (ρ²ʰ − 1)/(ρ² − 1); when ρ = 1, b(h) = 0.18h.</p>
+    <p>R is a planar rotation. This family is consistent across time steps: Fh ∘ Fs = Fh+s. At Δt = 1 it recovers the original example. The displayed one-unit spectral radius is ρ(DF₁(0)) = ρ; the actual per-step radius is ρ(DFΔt(0)) = ρ^Δt. Away from equilibrium, the Jacobian's spectral radius can differ.</p>
+    <p>For this built-in model, ρ &lt; 1 gives global exponential stability of the physical system. This alone does not guarantee solver convergence.</p></div>
+    <p id="gp-custom-explanation" hidden>Custom discrete equations define FΔt directly; include dt wherever the map needs it. Custom ODE equations define dx/dt = f(x), and the app uses FΔt(x) = x + Δt f(x) (forward Euler). The Jacobian is obtained by differentiating the entered expressions. Numerical stability depends on the equations and Δt; no global stability is assumed.</p>
+    <p>The clipped method rescales the full Jacobian by min(1, a/‖DFΔt‖F). State values are not clipped. The reference trajectory, updates, loss, and error use all N time steps; only the drawing is sampled when N is large. The exact selected time index is always included. Lines between displayed samples may skip time steps.</p>
+    <p>Calculations run in a background worker. Only the current pair of guesses and two checkpoints are retained, so moving backward may require recomputation. Large horizons with many solver iterations can take time; use Stop to cancel. The iteration slider computes when you release it.</p>
+    <p>The true trajectory is shown as a reference; it is not used to compute solver updates. Gaussian spread σ is the standard deviation in each coordinate. The interpolation preset has mean (1 − k/N)x₀ + (k/N)e. N controls the horizon, and the physical duration is NΔt. The reported loss is a sum, not an average over time.</p>
+  </details>
+  <div class="gp-tooltip text-small" role="tooltip" hidden></div>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+  <script>if(!window.d3){const v=document.getElementById('gp-validation');v.hidden=false;v.textContent='The plotting library (D3) could not be loaded from cdn.jsdelivr.net, so the demo cannot run. Check your connection or content blocker, then reload.';}</script>
+  <script id="gp-worker-source" type="text/plain">const PhaseExpressions = (() => {
+  const functions = {sin:1,cos:1,tan:1,tanh:1,exp:1,log:1,sqrt:1,atan:1,sinh:1,cosh:1,pow:2};
+  function parse(source) {
+    if(typeof source!=='string'||!source.trim()||source.length>500)throw new Error('Each equation must contain 1–500 characters.');
+    const tokens=[];let offset=0;
+    while(offset<source.length){
+      if(/\s/.test(source[offset])){offset++;continue;}
+      const part=source.slice(offset),m=part.match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i)||part.match(/^[A-Za-z_][A-Za-z_0-9]*/)||part.match(/^(?:\*\*|[+\-*/^(),])/);
+      if(!m)throw new Error('Unexpected character at position '+(offset+1)+'. Use math expressions, not JavaScript.');
+      tokens.push(m[0]);offset+=m[0].length;
+      if(tokens.length>200)throw new Error('Equation is too complex (maximum 200 tokens).');
+    }
+    let p=0,depth=0;
+    function atom(){
+      if(++depth>40)throw new Error('Too many nested operations.');
+      const t=tokens[p++];let n;
+      if(t==='('){n=sum();if(tokens[p++]!==')')throw new Error('Missing closing parenthesis.');}
+      else if(t&&/^(?:\d|\.)/.test(t)){const v=Number(t);if(!Number.isFinite(v))throw new Error('Use finite constants.');n={type:'number',value:v};}
+      else if(['x1','x2','x','y','dt','rho'].includes(t)){n={type:'variable',value:t==='x'?'x1':t==='y'?'x2':t};}
+      else if(t==='pi'||t==='e'){n={type:'number',value:t==='pi'?Math.PI:Math.E};}
+      else if(Object.hasOwn(functions,t)){
+        if(tokens[p++]!=='(')throw new Error(t+' needs parentheses.');
+        const args=[sum()];if(functions[t]===2){if(tokens[p++]!==',')throw new Error(t+' needs two arguments.');args.push(sum());}
+        if(tokens[p++]!==')')throw new Error('Check the arguments to '+t+'.');n={type:'call',value:t,args};
+      }else throw new Error('Unknown symbol '+String(t||'(end)')+'. Use x1, x2, dt, rho, pi, e, and the listed functions.');
+      depth--;return n;
+    }
+    function power(){let a=atom();if(tokens[p]==='^'||tokens[p]==='**'){p++;a={type:'binary',value:'^',args:[a,unary()]};}return a;}
+    function unary(){if(tokens[p]==='+'||tokens[p]==='-'){const op=tokens[p++];return {type:'unary',value:op,args:[unary()]};}return power();}
+    function product(){let a=unary();while(tokens[p]==='*'||tokens[p]==='/'){const op=tokens[p++];a={type:'binary',value:op,args:[a,unary()]};}return a;}
+    function sum(){let a=product();while(tokens[p]==='+'||tokens[p]==='-'){const op=tokens[p++];a={type:'binary',value:op,args:[a,product()]};}return a;}
+    const ast=sum();if(p!==tokens.length)throw new Error('Unexpected '+tokens[p]+'. Use * for multiplication.');return ast;
+  }
+  // Only a parsed, allowlisted math tree reaches code generation. Raw input is never executed.
+  function compile(first,second,{dt,rho,euler=false}) {
+    const lines=[];let count=0;
+    function emit(n){
+      if(n.type==='number')return {v:String(n.value),x:'0',y:'0',constant:n.value};
+      if(n.type==='variable'){
+        if(n.value==='dt'||n.value==='rho')return {v:String(n.value==='dt'?dt:rho),x:'0',y:'0',constant:n.value==='dt'?dt:rho};
+        return {v:n.value,x:n.value==='x1'?'1':'0',y:n.value==='x2'?'1':'0'};
+      }
+      const a=emit(n.args[0]),b=n.args[1]?emit(n.args[1]):null,id='q'+count++;
+      let value,dx,dy;
+      const slope = s => {dx='('+s+')*('+a.x+')';dy='('+s+')*('+a.y+')';};
+      const power = () => {
+        value='Math.pow('+a.v+','+b.v+')';
+        if(b.constant!==undefined){
+          if(b.constant===0){dx='0';dy='0';}
+          else {const s=String(b.constant)+'*Math.pow('+a.v+','+String(b.constant-1)+')';slope(s);}
+        }else if(b.x==='0'&&b.y==='0'){slope('('+b.v+'===0?0:'+b.v+'*Math.pow('+a.v+','+b.v+'-1))');}
+        else{dx=id+'*(('+b.x+')*Math.log('+a.v+')+('+b.v+')*('+a.x+')/('+a.v+'))';dy=id+'*(('+b.y+')*Math.log('+a.v+')+('+b.v+')*('+a.y+')/('+a.v+'))';}
+      };
+      if(n.type==='unary'){value=n.value+'('+a.v+')';dx=n.value+'('+a.x+')';dy=n.value+'('+a.y+')';}
+      else if(n.type==='binary'){
+        const op=n.value;
+        if(op==='^')power();
+        else{value='('+a.v+')'+op+'('+b.v+')';
+          if(op==='+'||op==='-'){dx='('+a.x+')'+op+'('+b.x+')';dy='('+a.y+')'+op+'('+b.y+')';}
+          if(op==='*'){dx='('+a.x+')*('+b.v+')+('+a.v+')*('+b.x+')';dy='('+a.y+')*('+b.v+')+('+a.v+')*('+b.y+')';}
+          if(op==='/'){dx='(('+a.x+')*('+b.v+')-('+a.v+')*('+b.x+'))/(('+b.v+')*('+b.v+'))';dy='(('+a.y+')*('+b.v+')-('+a.v+')*('+b.y+'))/(('+b.v+')*('+b.v+'))';}
+        }
+      }else if(n.value==='pow')power();
+      else{
+        value='Math.'+n.value+'('+a.v+')';
+        const slopes={sin:'Math.cos('+a.v+')',cos:'-Math.sin('+a.v+')',tan:'1/Math.cos('+a.v+')**2',tanh:'1-'+id+'*'+id,exp:id,log:'1/('+a.v+')',sqrt:'0.5/'+id,atan:'1/(1+('+a.v+')**2)',sinh:'Math.cosh('+a.v+')',cosh:'Math.sinh('+a.v+')'};
+        slope(slopes[n.value]);
+      }
+      // Structurally constant branches have exact zero derivatives, including sqrt(0).
+      if(a.x==='0'&&(!b||b.x==='0'))dx='0';
+      if(a.y==='0'&&(!b||b.y==='0'))dy='0';
+      lines.push('const '+id+'='+value+', '+id+'x='+dx+', '+id+'y='+dy+';');
+      return {v:id,x:dx==='0'?'0':id+'x',y:dy==='0'?'0':id+'y'};
+    }
+    const a=emit(parse(first)),b=emit(parse(second));
+    if(euler)lines.push('out[0]=x1+('+dt+')*'+a.v+';out[1]=x2+('+dt+')*'+b.v+';out[2]=1+('+dt+')*'+a.x+';out[3]=('+dt+')*'+a.y+';out[4]=('+dt+')*'+b.x+';out[5]=1+('+dt+')*'+b.y+';');
+    else lines.push('out[0]='+a.v+';out[1]='+b.v+';out[2]='+a.x+';out[3]='+a.y+';out[4]='+b.x+';out[5]='+b.y+';');
+    return new Function('x1','x2','out','"use strict";'+lines.join('\n'));
+  }
+  return {compile,parse};
+})();
+
+const PhaseDynamics = (() => {
+  function create({rho, dt, steps, method, cap, eta, x0, system='builtin', eq1='', eq2='', ex=0, ey=0}) {
+    const logRho = Math.log(rho);
+    const radiusFactor = Math.exp(logRho * dt);
+    const angleBase = .4 * dt;
+    const twist = .18 * (Math.abs(logRho) < 1e-12 ? dt : Math.expm1(2 * logRho * dt) / Math.expm1(2 * logRho));
+    const valid = v => v.every(z => Number.isFinite(z) && Math.abs(z) <= 1e8);
+    const evaluate = system==='builtin' ? (x,y,out) => {
+      const angle=angleBase+twist*(x*x+y*y),c=Math.cos(angle),s=Math.sin(angle);
+      const p=-s*x-c*y,q=c*x-s*y,gx=2*twist*x,gy=2*twist*y;
+      out[0]=radiusFactor*(c*x-s*y);out[1]=radiusFactor*(s*x+c*y);
+      out[2]=radiusFactor*(c+p*gx);out[3]=radiusFactor*(-s+p*gy);
+      out[4]=radiusFactor*(s+q*gx);out[5]=radiusFactor*(c+q*gy);
+    } : PhaseExpressions.compile(eq1,eq2,{dt,rho,euler:system==='ode'});
+    function F(v) {
+      const out=new Float64Array(6);evaluate(v[0],v[1],out);return [out[0],out[1]];
+    }
+    function jac(v) {
+      const out=new Float64Array(6);evaluate(v[0],v[1],out);return [[out[2],out[3]],[out[4],out[5]]];
+    }
+    function residuals(u) {
+      return u.map((v,k) => k ? v.map((z,j)=>z-F(u[k-1])[j]) : [0,0]);
+    }
+    function gradient(u) {
+      const r = residuals(u), g = [[0,0]];
+      for(let k=1;k<=steps;k++) {
+        const A = k<steps ? jac(u[k]) : [[0,0],[0,0]], rn = r[k+1] || [0,0];
+        g.push([r[k][0]-A[0][0]*rn[0]-A[1][0]*rn[1], r[k][1]-A[0][1]*rn[0]-A[1][1]*rn[1]]);
+      }
+      return g;
+    }
+    function loss(u) { return residuals(u).reduce((sum,r)=>sum+.5*(r[0]**2+r[1]**2),0); }
+    function step(u) {
+      const next = [x0.slice()];
+      if(method === 'gd') {
+        const g = gradient(u);
+        for(let k=1;k<=steps;k++) {
+          const v = u[k].map((z,j)=>z-eta*g[k][j]);
+          if(!valid(v))return null;
+          next.push(v);
+        }
+      } else {
+        for(let k=0;k<steps;k++) {
+          const A=jac(u[k]), f=F(u[k]), delta=next[k].map((z,j)=>z-u[k][j]);
+          const frobenius=Math.hypot(...A[0],...A[1]);
+          const scale=method==='clipped'&&frobenius>cap?cap/frobenius:1;
+          const v=f.map((z,j)=>z+scale*(A[j][0]*delta[0]+A[j][1]*delta[1]));
+          if(!valid(v))return null;
+          next.push(v);
+        }
+      }
+      return next;
+    }
+    function correctionBase(u,k) {
+      const f=F(u[k-1]);
+      return method==='gd' ? u[k].map((z,j)=>z-eta*(z-f[j])) : f;
+    }
+    const equilibrium=system==='builtin'?[0,0]:[ex,ey],m=new Float64Array(6);evaluate(...equilibrium,m);
+    const trace=m[2]+m[5],det=m[2]*m[5]-m[3]*m[4],disc=trace*trace-4*det;
+    const spectralRadius=disc<0?Math.sqrt(det):Math.max(Math.abs((trace+Math.sqrt(disc))/2),Math.abs((trace-Math.sqrt(disc))/2));
+    const fixedResidual=Math.hypot(m[0]-equilibrium[0],m[1]-equilibrium[1]);
+    return {F,jac,residuals,gradient,loss,step,correctionBase,valid,radiusFactor:system==='builtin'?radiusFactor:spectralRadius,
+      eval:evaluate,equilibrium,fixedResidual,isEquilibrium:Number.isFinite(fixedResidual)&&fixedResidual<=1e-9*(1+Math.hypot(...equilibrium))};
+  }
+  return {create};
+})();
+
+const PhaseSolver = (() => {
+  const CHUNK=32768,LIMIT=1e8;
+  const valid=(x,y)=>Number.isFinite(x)&&Number.isFinite(y)&&Math.abs(x)<=LIMIT&&Math.abs(y)<=LIMIT;
+  const point=(u,k)=>[u[2*k],u[2*k+1]];
+  class Session {
+    constructor(config){
+      this.config=config;this.N=config.steps;this.model=PhaseDynamics.create({...config,x0:[config.x0x,config.x0y]});
+      const length=2*(this.N+1);
+      this.truth=new Float64Array(length);this.current=new Float64Array(length);this.next=new Float64Array(length);
+      this.iteration=0;this.nextValid=false;this.failure=null;this.checkpoints=new Map();this.summary=null;
+    }
+    async initial(hook){
+      const c=this.config,N=this.N,u=this.current,e=this.model.equilibrium;let seed=c.seed>>>0;
+      const random=()=>{seed=(1664525*seed+1013904223)>>>0;return(seed+.5)/4294967296;};
+      const normal=()=>Math.sqrt(-2*Math.log(random()))*Math.cos(2*Math.PI*random());
+      u[0]=c.x0x;u[1]=c.x0y;
+      for(let k=1;k<=N;k++){
+        const f=c.init==='line'?k/N:0;
+        let x=c.init==='x0'?c.x0x:c.init==='custom'?c.centerx:c.init==='line'?(1-f)*c.x0x+f*e[0]:e[0];
+        let y=c.init==='x0'?c.x0y:c.init==='custom'?c.centery:c.init==='line'?(1-f)*c.x0y+f*e[1]:e[1];
+        if(c.sigma){x+=c.sigma*normal();y+=c.sigma*normal();}
+        u[2*k]=x;u[2*k+1]=y;
+        if(k%CHUNK===0)await hook('Initializing guesses',k/N);
+      }
+      this.iteration=0;this.nextValid=false;this.failure=null;this.summary=null;
+    }
+    async initialize(hook){
+      const c=this.config,t=this.truth,a=new Float64Array(6);t[0]=c.x0x;t[1]=c.x0y;
+      for(let k=1;k<=this.N;k++){
+        this.model.eval(t[2*k-2],t[2*k-1],a);
+        if(!valid(a[0],a[1]))throw new Error('Reference trajectory is undefined or exceeds the numerical limit at k = '+k+'. Check the equations, Δt, and horizon.');
+        t[2*k]=a[0];t[2*k+1]=a[1];
+        if(k%CHUNK===0)await hook('Computing reference trajectory',k/this.N);
+      }
+      await this.initial(hook);
+    }
+    async calculateNext(hook){
+      if(this.nextValid||this.failure)return;
+      const c=this.config,u=this.current,v=this.next,a=new Float64Array(6),N=this.N;
+      v[0]=c.x0x;v[1]=c.x0y;let failure=null;
+      if(c.method==='gd'){
+        this.model.eval(u[0],u[1],a);let px=a[0],py=a[1];
+        for(let k=1;k<=N;k++){
+          const j=2*k,x=u[j],y=u[j+1],rx=x-px,ry=y-py;
+          let gx=rx,gy=ry;
+          if(k<N){
+            this.model.eval(x,y,a);
+            const nx=u[j+2]-a[0],ny=u[j+3]-a[1];
+            gx-=a[2]*nx+a[4]*ny;gy-=a[3]*nx+a[5]*ny;px=a[0];py=a[1];
+          }
+          v[j]=x-c.eta*gx;v[j+1]=y-c.eta*gy;
+          if(!valid(v[j],v[j+1])){failure=k;break;}
+          if(k%CHUNK===0)await hook('Computing update '+(this.iteration+1),k/N);
+        }
+      }else{
+        for(let k=1;k<=N;k++){
+          const j=2*k;this.model.eval(u[j-2],u[j-1],a);
+          const dx=v[j-2]-u[j-2],dy=v[j-1]-u[j-1],norm=Math.hypot(a[2],a[3],a[4],a[5]);
+          const factor=c.method==='clipped'&&norm>c.cap?c.cap/norm:1;
+          v[j]=a[0]+factor*(a[2]*dx+a[3]*dy);v[j+1]=a[1]+factor*(a[4]*dx+a[5]*dy);
+          if(!valid(v[j],v[j+1])){failure=k;break;}
+          if(k%CHUNK===0)await hook('Computing update '+(this.iteration+1),k/N);
+        }
+      }
+      this.failure=failure===null?null:{iteration:this.iteration+1,k:failure};
+      this.nextValid=failure===null;this.summary=null;
+    }
+    checkpoint(){
+      if(this.checkpoints.has(this.iteration))return;
+      if(this.checkpoints.size>=2)this.checkpoints.delete(this.checkpoints.keys().next().value);
+      this.checkpoints.set(this.iteration,this.current.slice());
+    }
+    async seek(target,hook){
+      if(target<this.iteration){
+        let best=-1;for(const i of this.checkpoints.keys())if(i<=target&&i>best)best=i;
+        if(best>=0){this.current.set(this.checkpoints.get(best));this.iteration=best;this.nextValid=false;this.failure=null;this.summary=null;}
+        else await this.initial(hook);
+      }
+      while(this.iteration<target){
+        await this.calculateNext(hook);if(this.failure)break;
+        const old=this.current;this.current=this.next;this.next=old;this.iteration++;this.nextValid=false;this.summary=null;
+        if(this.iteration%32===0)this.checkpoint();
+        await hook('Solver iteration '+this.iteration+' of '+target,this.iteration/Math.max(1,target));
+      }
+      await this.calculateNext(hook);this.checkpoint();
+    }
+    async measure(hook){
+      if(this.summary)return;
+      const u=this.current,v=this.nextValid?this.next:u,t=this.truth,a=new Float64Array(6),b=new Float64Array(6),N=this.N;
+      let error=0,nextError=0,loss=0,nextLoss=0,worst=0;
+      const bounds=[Infinity,-Infinity,Infinity,-Infinity],extrema=[0,0,0,0],datasets=[u,v,t];
+      for(let k=0;k<=N;k++){
+        const j=k*2,er=Math.hypot(u[j]-t[j],u[j+1]-t[j+1]);if(er>error){error=er;worst=k;}
+        nextError=Math.max(nextError,Math.hypot(v[j]-t[j],v[j+1]-t[j+1]));
+        for(const data of datasets){const x=data[j],y=data[j+1];if(x<bounds[0]){bounds[0]=x;extrema[0]=k;}if(x>bounds[1]){bounds[1]=x;extrema[1]=k;}if(y<bounds[2]){bounds[2]=y;extrema[2]=k;}if(y>bounds[3]){bounds[3]=y;extrema[3]=k;}}
+        if(k<N){
+          this.model.eval(u[j],u[j+1],a);this.model.eval(v[j],v[j+1],b);
+          loss+=.5*((u[j+2]-a[0])**2+(u[j+3]-a[1])**2);nextLoss+=.5*((v[j+2]-b[0])**2+(v[j+3]-b[1])**2);
+        }
+        if(k&&k%CHUNK===0)await hook('Measuring all '+N.toLocaleString()+' time steps',k/N);
+      }
+      const indices=new Set([0,N,worst,...extrema]);
+      if(N<=1200)for(let k=0;k<=N;k++)indices.add(k);
+      else{
+        for(let k=0;k<128;k++)indices.add(k);
+        for(let k=0;k<=480;k++)indices.add(Math.round(k*N/480));
+        for(let k=0;k<=160;k++)indices.add(Math.min(N,Math.round(Math.exp(k*Math.log(N+1)/160)-1)));
+      }
+      this.summary={error,nextError,loss,nextLoss,bounds,indices:Array.from(indices).sort((a,b)=>a-b)};
+    }
+    async snapshot(k,hook){
+      await this.measure(hook);
+      const indices=new Set(this.summary.indices);for(let j=Math.max(0,k-1);j<=Math.min(this.N,k+1);j++)indices.add(j);
+      const order=Array.from(indices).sort((a,b)=>a-b),u=this.current,v=this.nextValid?this.next:u,t=this.truth;
+      const sample=data=>order.map(k=>[data[2*k],data[2*k+1],k]);
+      const previous=point(u,k-1),f=this.model.F(previous),current=point(u,k);
+      const base=this.config.method==='gd'?current.map((x,j)=>x-this.config.eta*(x-f[j])):f;
+      const {indices:unused,...metrics}=this.summary;
+      return {iteration:this.iteration,steps:this.N,k,current:sample(u),next:sample(v),truth:sample(t),metrics,
+        selected:{current,next:point(v,k),previous,truth:point(t,k),previousTruth:point(t,k-1),base},
+        failure:this.failure,sampled:order.length<this.N+1,plotted:order.length,
+        retainedBytes:this.truth.byteLength+this.current.byteLength+this.next.byteLength+Array.from(this.checkpoints.values()).reduce((s,a)=>s+a.byteLength,0)};
+    }
+  }
+  return {Session};
+})();
+
+let session=null,sessionKey='',version=0;
+self.onmessage=async event=>{
+  const message=event.data,token=++version;
+  if(message.type==='cancel'){self.postMessage({type:'cancelled',id:message.id});return;}
+  const {id,config,target,k}=message;let lastProgress=0;
+  const hook=async(label,fraction)=>{
+    if(token!==version)throw new Error('__cancelled__');
+    const now=performance.now();if(now-lastProgress>100){self.postMessage({type:'progress',id,label,fraction});lastProgress=now;}
+    await new Promise(resolve=>setTimeout(resolve,0));
+    if(token!==version)throw new Error('__cancelled__');
+  };
+  try{
+    const key=JSON.stringify(config);
+    if(!session||sessionKey!==key){const candidate=new PhaseSolver.Session(config);await candidate.initialize(hook);if(token!==version)return;session=candidate;sessionKey=key;}
+    await session.seek(target,hook);
+    const snapshot=await session.snapshot(k,hook);
+    if(token===version)self.postMessage({type:'result',id,snapshot});
+  }catch(error){if(token===version&&error.message!=='__cancelled__')self.postMessage({type:'error',id,message:error.message||'Unable to compute this trajectory.'});}
+};
+</script>
+  <script>const PhaseExpressions = (() => {
+  const functions = {sin:1,cos:1,tan:1,tanh:1,exp:1,log:1,sqrt:1,atan:1,sinh:1,cosh:1,pow:2};
+  function parse(source) {
+    if(typeof source!=='string'||!source.trim()||source.length>500)throw new Error('Each equation must contain 1–500 characters.');
+    const tokens=[];let offset=0;
+    while(offset<source.length){
+      if(/\s/.test(source[offset])){offset++;continue;}
+      const part=source.slice(offset),m=part.match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?/i)||part.match(/^[A-Za-z_][A-Za-z_0-9]*/)||part.match(/^(?:\*\*|[+\-*/^(),])/);
+      if(!m)throw new Error('Unexpected character at position '+(offset+1)+'. Use math expressions, not JavaScript.');
+      tokens.push(m[0]);offset+=m[0].length;
+      if(tokens.length>200)throw new Error('Equation is too complex (maximum 200 tokens).');
+    }
+    let p=0,depth=0;
+    function atom(){
+      if(++depth>40)throw new Error('Too many nested operations.');
+      const t=tokens[p++];let n;
+      if(t==='('){n=sum();if(tokens[p++]!==')')throw new Error('Missing closing parenthesis.');}
+      else if(t&&/^(?:\d|\.)/.test(t)){const v=Number(t);if(!Number.isFinite(v))throw new Error('Use finite constants.');n={type:'number',value:v};}
+      else if(['x1','x2','x','y','dt','rho'].includes(t)){n={type:'variable',value:t==='x'?'x1':t==='y'?'x2':t};}
+      else if(t==='pi'||t==='e'){n={type:'number',value:t==='pi'?Math.PI:Math.E};}
+      else if(Object.hasOwn(functions,t)){
+        if(tokens[p++]!=='(')throw new Error(t+' needs parentheses.');
+        const args=[sum()];if(functions[t]===2){if(tokens[p++]!==',')throw new Error(t+' needs two arguments.');args.push(sum());}
+        if(tokens[p++]!==')')throw new Error('Check the arguments to '+t+'.');n={type:'call',value:t,args};
+      }else throw new Error('Unknown symbol '+String(t||'(end)')+'. Use x1, x2, dt, rho, pi, e, and the listed functions.');
+      depth--;return n;
+    }
+    function power(){let a=atom();if(tokens[p]==='^'||tokens[p]==='**'){p++;a={type:'binary',value:'^',args:[a,unary()]};}return a;}
+    function unary(){if(tokens[p]==='+'||tokens[p]==='-'){const op=tokens[p++];return {type:'unary',value:op,args:[unary()]};}return power();}
+    function product(){let a=unary();while(tokens[p]==='*'||tokens[p]==='/'){const op=tokens[p++];a={type:'binary',value:op,args:[a,unary()]};}return a;}
+    function sum(){let a=product();while(tokens[p]==='+'||tokens[p]==='-'){const op=tokens[p++];a={type:'binary',value:op,args:[a,product()]};}return a;}
+    const ast=sum();if(p!==tokens.length)throw new Error('Unexpected '+tokens[p]+'. Use * for multiplication.');return ast;
+  }
+  // Only a parsed, allowlisted math tree reaches code generation. Raw input is never executed.
+  function compile(first,second,{dt,rho,euler=false}) {
+    const lines=[];let count=0;
+    function emit(n){
+      if(n.type==='number')return {v:String(n.value),x:'0',y:'0',constant:n.value};
+      if(n.type==='variable'){
+        if(n.value==='dt'||n.value==='rho')return {v:String(n.value==='dt'?dt:rho),x:'0',y:'0',constant:n.value==='dt'?dt:rho};
+        return {v:n.value,x:n.value==='x1'?'1':'0',y:n.value==='x2'?'1':'0'};
+      }
+      const a=emit(n.args[0]),b=n.args[1]?emit(n.args[1]):null,id='q'+count++;
+      let value,dx,dy;
+      const slope = s => {dx='('+s+')*('+a.x+')';dy='('+s+')*('+a.y+')';};
+      const power = () => {
+        value='Math.pow('+a.v+','+b.v+')';
+        if(b.constant!==undefined){
+          if(b.constant===0){dx='0';dy='0';}
+          else {const s=String(b.constant)+'*Math.pow('+a.v+','+String(b.constant-1)+')';slope(s);}
+        }else if(b.x==='0'&&b.y==='0'){slope('('+b.v+'===0?0:'+b.v+'*Math.pow('+a.v+','+b.v+'-1))');}
+        else{dx=id+'*(('+b.x+')*Math.log('+a.v+')+('+b.v+')*('+a.x+')/('+a.v+'))';dy=id+'*(('+b.y+')*Math.log('+a.v+')+('+b.v+')*('+a.y+')/('+a.v+'))';}
+      };
+      if(n.type==='unary'){value=n.value+'('+a.v+')';dx=n.value+'('+a.x+')';dy=n.value+'('+a.y+')';}
+      else if(n.type==='binary'){
+        const op=n.value;
+        if(op==='^')power();
+        else{value='('+a.v+')'+op+'('+b.v+')';
+          if(op==='+'||op==='-'){dx='('+a.x+')'+op+'('+b.x+')';dy='('+a.y+')'+op+'('+b.y+')';}
+          if(op==='*'){dx='('+a.x+')*('+b.v+')+('+a.v+')*('+b.x+')';dy='('+a.y+')*('+b.v+')+('+a.v+')*('+b.y+')';}
+          if(op==='/'){dx='(('+a.x+')*('+b.v+')-('+a.v+')*('+b.x+'))/(('+b.v+')*('+b.v+'))';dy='(('+a.y+')*('+b.v+')-('+a.v+')*('+b.y+'))/(('+b.v+')*('+b.v+'))';}
+        }
+      }else if(n.value==='pow')power();
+      else{
+        value='Math.'+n.value+'('+a.v+')';
+        const slopes={sin:'Math.cos('+a.v+')',cos:'-Math.sin('+a.v+')',tan:'1/Math.cos('+a.v+')**2',tanh:'1-'+id+'*'+id,exp:id,log:'1/('+a.v+')',sqrt:'0.5/'+id,atan:'1/(1+('+a.v+')**2)',sinh:'Math.cosh('+a.v+')',cosh:'Math.sinh('+a.v+')'};
+        slope(slopes[n.value]);
+      }
+      // Structurally constant branches have exact zero derivatives, including sqrt(0).
+      if(a.x==='0'&&(!b||b.x==='0'))dx='0';
+      if(a.y==='0'&&(!b||b.y==='0'))dy='0';
+      lines.push('const '+id+'='+value+', '+id+'x='+dx+', '+id+'y='+dy+';');
+      return {v:id,x:dx==='0'?'0':id+'x',y:dy==='0'?'0':id+'y'};
+    }
+    const a=emit(parse(first)),b=emit(parse(second));
+    if(euler)lines.push('out[0]=x1+('+dt+')*'+a.v+';out[1]=x2+('+dt+')*'+b.v+';out[2]=1+('+dt+')*'+a.x+';out[3]=('+dt+')*'+a.y+';out[4]=('+dt+')*'+b.x+';out[5]=1+('+dt+')*'+b.y+';');
+    else lines.push('out[0]='+a.v+';out[1]='+b.v+';out[2]='+a.x+';out[3]='+a.y+';out[4]='+b.x+';out[5]='+b.y+';');
+    return new Function('x1','x2','out','"use strict";'+lines.join('\n'));
+  }
+  return {compile,parse};
+})();
+
+  const PhaseDynamics = (() => {
+  function create({rho, dt, steps, method, cap, eta, x0, system='builtin', eq1='', eq2='', ex=0, ey=0}) {
+    const logRho = Math.log(rho);
+    const radiusFactor = Math.exp(logRho * dt);
+    const angleBase = .4 * dt;
+    const twist = .18 * (Math.abs(logRho) < 1e-12 ? dt : Math.expm1(2 * logRho * dt) / Math.expm1(2 * logRho));
+    const valid = v => v.every(z => Number.isFinite(z) && Math.abs(z) <= 1e8);
+    const evaluate = system==='builtin' ? (x,y,out) => {
+      const angle=angleBase+twist*(x*x+y*y),c=Math.cos(angle),s=Math.sin(angle);
+      const p=-s*x-c*y,q=c*x-s*y,gx=2*twist*x,gy=2*twist*y;
+      out[0]=radiusFactor*(c*x-s*y);out[1]=radiusFactor*(s*x+c*y);
+      out[2]=radiusFactor*(c+p*gx);out[3]=radiusFactor*(-s+p*gy);
+      out[4]=radiusFactor*(s+q*gx);out[5]=radiusFactor*(c+q*gy);
+    } : PhaseExpressions.compile(eq1,eq2,{dt,rho,euler:system==='ode'});
+    function F(v) {
+      const out=new Float64Array(6);evaluate(v[0],v[1],out);return [out[0],out[1]];
+    }
+    function jac(v) {
+      const out=new Float64Array(6);evaluate(v[0],v[1],out);return [[out[2],out[3]],[out[4],out[5]]];
+    }
+    function residuals(u) {
+      return u.map((v,k) => k ? v.map((z,j)=>z-F(u[k-1])[j]) : [0,0]);
+    }
+    function gradient(u) {
+      const r = residuals(u), g = [[0,0]];
+      for(let k=1;k<=steps;k++) {
+        const A = k<steps ? jac(u[k]) : [[0,0],[0,0]], rn = r[k+1] || [0,0];
+        g.push([r[k][0]-A[0][0]*rn[0]-A[1][0]*rn[1], r[k][1]-A[0][1]*rn[0]-A[1][1]*rn[1]]);
+      }
+      return g;
+    }
+    function loss(u) { return residuals(u).reduce((sum,r)=>sum+.5*(r[0]**2+r[1]**2),0); }
+    function step(u) {
+      const next = [x0.slice()];
+      if(method === 'gd') {
+        const g = gradient(u);
+        for(let k=1;k<=steps;k++) {
+          const v = u[k].map((z,j)=>z-eta*g[k][j]);
+          if(!valid(v))return null;
+          next.push(v);
+        }
+      } else {
+        for(let k=0;k<steps;k++) {
+          const A=jac(u[k]), f=F(u[k]), delta=next[k].map((z,j)=>z-u[k][j]);
+          const frobenius=Math.hypot(...A[0],...A[1]);
+          const scale=method==='clipped'&&frobenius>cap?cap/frobenius:1;
+          const v=f.map((z,j)=>z+scale*(A[j][0]*delta[0]+A[j][1]*delta[1]));
+          if(!valid(v))return null;
+          next.push(v);
+        }
+      }
+      return next;
+    }
+    function correctionBase(u,k) {
+      const f=F(u[k-1]);
+      return method==='gd' ? u[k].map((z,j)=>z-eta*(z-f[j])) : f;
+    }
+    const equilibrium=system==='builtin'?[0,0]:[ex,ey],m=new Float64Array(6);evaluate(...equilibrium,m);
+    const trace=m[2]+m[5],det=m[2]*m[5]-m[3]*m[4],disc=trace*trace-4*det;
+    const spectralRadius=disc<0?Math.sqrt(det):Math.max(Math.abs((trace+Math.sqrt(disc))/2),Math.abs((trace-Math.sqrt(disc))/2));
+    const fixedResidual=Math.hypot(m[0]-equilibrium[0],m[1]-equilibrium[1]);
+    return {F,jac,residuals,gradient,loss,step,correctionBase,valid,radiusFactor:system==='builtin'?radiusFactor:spectralRadius,
+      eval:evaluate,equilibrium,fixedResidual,isEquilibrium:Number.isFinite(fixedResidual)&&fixedResidual<=1e-9*(1+Math.hypot(...equilibrium))};
+  }
+  return {create};
+})();
+
+  (function(){
+  const root=document.getElementById('guess-phase-portrait'),$=id=>root.querySelector('#gp-'+id);
+  const methodNames={gn:'Gauss–Newton',clipped:'Clipped Gauss–Newton',gd:'Gradient descent'},maxUpdate=1000;
+  const defaults={method:'gn',system:'builtin',steps:18,dt:1,cap:.65,eta:.1,iteration:0,k:3,rho:.78,init:'equilibrium',sigma:0,x0x:2.2,x0y:.5,centerx:1,centery:1,seed:42,ex:0,ey:0,
+    eq1:'rho^dt * (cos(0.4*dt)*x1 - sin(0.4*dt)*x2)',eq2:'rho^dt * (sin(0.4*dt)*x1 + cos(0.4*dt)*x2)',
+    visible:{current:true,next:true,truth:true,corrections:true}};
+  const ranges={steps:[1,1000000],dt:[.000001,2],cap:[.01,2],eta:[.000001,1],rho:[.05,1.1],sigma:[0,2],x0x:[-4,4],x0y:[-4,4],centerx:[-4,4],centery:[-4,4],seed:[1,999999],ex:[-100000,100000],ey:[-100000,100000]};
+  let state=JSON.parse(JSON.stringify(defaults)),T=18,x0=[2.2,.5],model,snapshot=null,busy=false,serial=0,pending=null,firstDraw=true;
+  const colors={current:'var(--viz-series-2)',next:'var(--viz-series-1)',truth:'var(--viz-series-3)',corrections:'var(--viz-series-4)'};
+  const names={current:'Current guess',next:'Updated guess',truth:'True trajectory'};
+  const svg=d3.select(root.querySelector('.gp-chart')),plot=root.querySelector('.gp-plot'),tooltip=root.querySelector('.gp-tooltip'),index=$('index');
+  const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function F(v){return model.F(v);}
+  function fmt(v){return !Number.isFinite(v)?'undefined':Math.abs(v)<1e-10?'0':Math.abs(v)<.001||Math.abs(v)>=1e4?v.toExponential(2):d3.format('.3f')(v);}
+  function coords(v){return '('+fmt(v[0])+', '+fmt(v[1])+')';}
+  function restore(value){
+    const v=value?.privateContent||value;if(!v||typeof v!=='object')return;
+    for(const key of Object.keys(ranges))if(Number.isFinite(v[key]))state[key]=Math.max(ranges[key][0],Math.min(ranges[key][1],v[key]));
+    for(const key of ['eq1','eq2'])if(typeof v[key]==='string'&&v[key].length<=500)state[key]=v[key];
+    if(Object.hasOwn(methodNames,v.method))state.method=v.method;
+    if(['builtin','discrete','ode'].includes(v.system))state.system=v.system;
+    if(['equilibrium','x0','line','custom'].includes(v.init))state.init=v.init;
+    for(const key of ['steps','seed'])state[key]=Math.round(state[key]);
+    if(Number.isInteger(v.iteration))state.iteration=Math.max(0,Math.min(maxUpdate,v.iteration));
+    if(Number.isInteger(v.k))state.k=Math.max(1,Math.min(state.steps,v.k));
+    for(const key of Object.keys(state.visible))if(typeof v.visible?.[key]==='boolean')state.visible[key]=v.visible[key];
+  }
+  const storageKey='ppg-guess-dynamics-v1';
+  function loadSaved(){try{return JSON.parse(localStorage.getItem(storageKey)||'null');}catch{return null;}}
+  restore(loadSaved());
+  // Reopen long saved runs at iteration 0 instead of replaying them behind a hidden plot.
+  if(state.steps*state.iteration>5e6)state.iteration=0;
+  function config(){const {iteration,k,visible,...c}=state;return c;}
+  function validate(values){
+    if(!values||typeof values!=='object'||Array.isArray(values))throw new Error('Expected a configuration object.');
+    for(const [key,value] of Object.entries(values)){
+      if(key==='method'){if(!Object.hasOwn(methodNames,value))throw new Error('Unknown update rule.');}
+      else if(key==='system'){if(!['builtin','discrete','ode'].includes(value))throw new Error('Unknown dynamics type.');}
+      else if(key==='init'){if(!['equilibrium','x0','line','custom'].includes(value))throw new Error('Unknown initialization.');}
+      else if(key==='eq1'||key==='eq2'){if(typeof value!=='string'||value.length>500)throw new Error('Each equation is limited to 500 characters.');}
+      else if(!ranges[key]||!Number.isFinite(value)||value<ranges[key][0]||value>ranges[key][1]||(['steps','seed'].includes(key)&&!Number.isInteger(value)))throw new Error('Invalid '+key+' value.');
+    }
+  }
+  function persist(){
+    // Save only completed work; a pending seek target would be replayed on every reload.
+    try{localStorage.setItem(storageKey,JSON.stringify({...state,iteration:snapshot?.iteration??0,k:snapshot?.k??state.k}));}catch{}
+  }
+  function reportError(error){if(error?.name==='AbortError')return;$('validation').hidden=false;$('validation').textContent=error?.message||String(error);}
+  function cancelled(){const e=new Error('Superseded or stopped.');e.name='AbortError';return e;}
+  const workerURL=URL.createObjectURL(new Blob([$('worker-source').textContent],{type:'text/javascript'})),worker=new Worker(workerURL);
+  window.addEventListener('pagehide',()=>{worker.terminate();URL.revokeObjectURL(workerURL);},{once:true});
+  function syncControls(){
+    T=state.steps;x0=[state.x0x,state.x0y];
+    for(const key of Object.keys(ranges))$(key).value=String(state[key]);
+    $('method').value=state.method;$('init').value=state.init;$('system').value=state.system;
+    index.max=String(T);index.value=String(state.k);
+    $('jump').value=String(state.iteration);$('slider').value=String(state.iteration);$('slider-value').textContent=String(state.iteration);
+    $('equations').hidden=state.system==='builtin';
+    $('eq1-label').textContent=state.system==='ode'?'dx₁ / dt =':'x₁ next =';$('eq2-label').textContent=state.system==='ode'?'dx₂ / dt =':'x₂ next =';
+    $('rho-label').textContent=state.system==='builtin'?'One-unit spectral radius ρ:':'Equation parameter rho:';
+    $('rho-value').textContent=state.rho.toFixed(2);
+    root.querySelectorAll('[data-method]').forEach(el=>el.hidden=el.dataset.method!==state.method);
+    root.querySelectorAll('[data-custom]').forEach(el=>el.hidden=state.init!=='custom');
+    $('builtin-explanation').hidden=state.system!=='builtin';$('custom-explanation').hidden=state.system==='builtin';
+    $('subtitle').textContent='Discrete phase portrait · '+methodNames[state.method];
+    $('time').textContent='N = '+T.toLocaleString()+' · Δt = '+fmt(state.dt)+' · duration NΔt = '+fmt(T*state.dt);
+    const m=model;
+    if(m){
+      $('stability').textContent=state.system==='builtin'?'Per-step radius: '+fmt(m.radiusFactor)+' · '+(state.rho<1?'Physical dynamics contract toward equilibrium.':state.rho===1?'Physical radius is preserved.':'Physical dynamics expand.'):
+        (m.isEquilibrium?'e is a fixed point (numerical check). ':Number.isFinite(m.fixedResidual)?'e is a reference point, not a fixed point; residual '+fmt(m.fixedResidual)+'. ':'Equations are undefined at reference e. ')+'Jacobian spectral radius at e: '+fmt(m.radiusFactor);
+      $('init').querySelector('[value="equilibrium"]').textContent=m.isEquilibrium?'Around equilibrium':'Around reference e';
+      $('init').querySelector('[value="line"]').textContent=m.isEquilibrium?'Along x₀ → equilibrium':'Along x₀ → reference e';
+    }
+    const descriptions={
+      gn:['ξₖ⁽ⁱ⁺¹⁾ = FΔt(ξₖ₋₁⁽ⁱ⁾) + DFΔt(ξₖ₋₁⁽ⁱ⁾)(ξₖ₋₁⁽ⁱ⁺¹⁾ − ξₖ₋₁⁽ⁱ⁾)','The dashed legs show the residual correction −rₖ and the propagated correction DFΔt · Δξₖ₋₁.'],
+      clipped:['ξₖ⁽ⁱ⁺¹⁾ = FΔt(ξₖ₋₁⁽ⁱ⁾) + Bₖ₋₁(ξₖ₋₁⁽ⁱ⁺¹⁾ − ξₖ₋₁⁽ⁱ⁾), B = min(1, a/‖DFΔt‖F) DFΔt','The dashed legs show the residual correction −rₖ and the propagated correction B · Δξₖ₋₁.'],
+      gd:['ξₖ⁽ⁱ⁺¹⁾ = ξₖ⁽ⁱ⁾ − η[rₖ − DFΔt(ξₖ⁽ⁱ⁾)ᵀrₖ₊₁]','The dashed legs show −ηrₖ and +η DFΔt(ξₖ)ᵀrₖ₊₁, both evaluated at the current guess.']};
+    $('rule').textContent=descriptions[state.method][0];$('rule-description').textContent=descriptions[state.method][1];
+    $('stop').hidden=!busy;$('back').disabled=!snapshot||state.iteration===0;$('forward').disabled=state.iteration>=maxUpdate||!!snapshot?.failure;
+    root.querySelectorAll('.gp-legend button').forEach(b=>b.setAttribute('aria-pressed',String(state.visible[b.dataset.series])));
+  }
+  function showSnapshot(){
+    const s=snapshot;syncControls();plot.hidden=!s;tooltip.hidden=true;
+    if(!s){$('error').textContent='';$('loss').textContent='';$('details').textContent='';$('sampling').textContent='';$('iteration').textContent='';return;}
+    $('iteration').textContent='Iteration '+s.iteration+' → '+(s.iteration+1);
+    $('error').textContent='Max error: '+fmt(s.metrics.error)+' → '+(s.failure?'unavailable':fmt(s.metrics.nextError));
+    $('loss').textContent='Loss: '+fmt(s.metrics.loss)+' → '+(s.failure?'unavailable':fmt(s.metrics.nextLoss));
+    $('numerics').hidden=!s.failure;$('numerics').textContent=s.failure?'Update '+s.failure.iteration+' is undefined or exceeds the numerical limit (10⁸) at k = '+s.failure.k+'. The current guess is shown; state values are not clipped.':'';
+    $('sampling').textContent=s.sampled?'All '+T.toLocaleString()+' time steps are computed; the plot shows '+s.plotted.toLocaleString()+' sampled points per trajectory, including the selected k.':(T+1).toLocaleString()+' trajectory points shown. Updates and metrics use all time steps.';
+    draw(false);
+  }
+  worker.onmessage=event=>{
+    const m=event.data;if(m.id!==serial)return;
+    if(m.type==='progress'){$('compute').textContent=m.label+' · '+Math.round(m.fraction*100)+'%';return;}
+    busy=false;
+    if(m.type==='result'){
+      snapshot=m.snapshot;state.iteration=snapshot.iteration;state.k=snapshot.k;
+      $('compute').textContent='Ready';$('validation').hidden=true;showSnapshot();persist();
+      pending?.resolve({method:state.method,system:state.system,steps:T,dt:state.dt,iteration:state.iteration,k:state.k,plotted:snapshot.plotted,retainedBytes:snapshot.retainedBytes});pending=null;
+    }else if(m.type==='error'){
+      $('compute').textContent='Calculation stopped';syncControls();reportError(new Error(m.message));pending?.reject(new Error(m.message));pending=null;
+    }else if(m.type==='cancelled'){
+      state.iteration=snapshot?.iteration||0;state.k=snapshot?.k||state.k;$('compute').textContent='Stopped. The last completed view is shown.';showSnapshot();pending?.reject(cancelled());pending=null;
+    }
+  };
+  worker.onerror=event=>{busy=false;syncControls();const error=new Error('Calculation worker stopped: '+event.message);reportError(error);pending?.reject(error);pending=null;};
+  function requestRun(){
+    state.k=Math.min(T,Math.max(1,state.k));pending?.reject(cancelled());serial++;busy=true;$('validation').hidden=true;$('numerics').hidden=true;syncControls();$('compute').textContent='Computing requested iteration '+state.iteration+'…';
+    const promise=new Promise((resolve,reject)=>pending={resolve,reject});worker.postMessage({type:'run',id:serial,config:config(),target:state.iteration,k:state.k});return promise;
+  }
+  async function configure(values){
+    validate(values);const candidate={...state,...values};
+    const candidateModel=PhaseDynamics.create({...candidate,x0:[candidate.x0x,candidate.x0y]});
+    Object.assign(state,values);state.iteration=0;state.k=Math.min(state.k,state.steps);T=state.steps;model=candidateModel;snapshot=null;
+    for(const key of ['eq1','eq2'])if(Object.hasOwn(values,key))$(key).value=state[key];
+    showSnapshot();return requestRun();
+  }
+  function seek(value){if(!Number.isInteger(value)||value<0||value>maxUpdate){reportError(new Error('Solver iteration must be an integer from 0 to 1000.'));return;}state.iteration=value;requestRun().catch(reportError);}
+
+      const defs=svg.append('defs');
+    defs.append('clipPath').attr('id','gp-clip').append('rect');
+    ['current','next','truth','corrections','field'].forEach(function(name){
+      defs.append('marker').attr('id','gp-arrow-'+name).attr('viewBox','0 -4 9 8').attr('refX',8).attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto').attr('markerUnits','strokeWidth')
+        .append('path').attr('d','M0,-3L8,0L0,3Z').attr('fill',colors[name]||'var(--muted-foreground)');
+    });
+    const frame=svg.append('rect').attr('data-chart-frame','').attr('fill','none').attr('stroke','var(--border)');
+    const xAxis=svg.append('g'), yAxis=svg.append('g');
+    const content=svg.append('g').attr('clip-path','url(#gp-clip)');
+    const field=content.append('g');
+    const seriesGroup=content.append('g');
+    const correctionGroup=content.append('g');
+    const selectedGroup=content.append('g');
+    const labels=svg.append('g');
+    const xTitle=svg.append('text').attr('class','axis-title').attr('data-axis','x').attr('text-anchor','middle').text('State x₁ (dimensionless)');
+    const yTitle=svg.append('text').attr('class','axis-title').attr('data-axis','y').attr('text-anchor','middle').text('State x₂ (dimensionless)');
+    const fieldLabel=svg.append('text').text('Gray arrows: direction of F(x) − x');
+    const overlay=svg.append('rect').attr('data-chart-hit','').attr('data-chart-hover-overlay','nearest-state').attr('fill','transparent');
+
+    function draw(animate){
+      if(!snapshot)return;
+      const current=snapshot.current,next=snapshot.next,truth=snapshot.truth,data={current,next,truth};
+      const width=plot.getBoundingClientRect().width||320, margin={left:66,right:18,top:35,bottom:62};
+      const innerW=width-margin.left-margin.right,innerH=Math.min(420,Math.max(245,innerW*.75));
+      const height=innerH+margin.top+margin.bottom;
+      svg.attr('width',width).attr('height',height).attr('viewBox','0 0 '+width+' '+height);
+      const localBase=snapshot.selected.base,baseValid=localBase.every(Number.isFinite);
+      const observations=truth.concat(current,next,[model.equilibrium,...(baseValid?[localBase]:[]),[snapshot.metrics.bounds[0],snapshot.metrics.bounds[2]],[snapshot.metrics.bounds[1],snapshot.metrics.bounds[3]]]);
+      const ex=d3.extent(observations,function(p){return p[0];}), ey=d3.extent(observations,function(p){return p[1];});
+      const cx=(ex[0]+ex[1])/2,cy=(ey[0]+ey[1])/2;
+      let spanX=Math.max(.1,ex[1]-ex[0])*1.22,spanY=Math.max(.1,ey[1]-ey[0])*1.22;
+      if(spanX/spanY<innerW/innerH)spanX=spanY*innerW/innerH;else spanY=spanX*innerH/innerW;
+      const sx=d3.scaleLinear().domain([cx-spanX/2,cx+spanX/2]).range([margin.left+7,margin.left+innerW-7]);
+      const sy=d3.scaleLinear().domain([cy-spanY/2,cy+spanY/2]).range([margin.top+innerH-7,margin.top+7]);
+      const dur=animate&&!reducedMotion&&!firstDraw?220:0;
+      frame.attr('x',margin.left).attr('y',margin.top).attr('width',innerW).attr('height',innerH);
+      defs.select('clipPath rect').attr('x',margin.left).attr('y',margin.top).attr('width',innerW).attr('height',innerH);
+      xAxis.attr('transform','translate(0,'+(margin.top+innerH)+')').call(d3.axisBottom(sx).ticks(width<450?4:6).tickSize(4).tickFormat(function(v){return Math.abs(v)>=1000?d3.format('.2~s')(v):d3.format('.1f')(v);}));
+      yAxis.attr('transform','translate('+margin.left+',0)').call(d3.axisLeft(sy).ticks(5).tickSize(4).tickFormat(function(v){return Math.abs(v)>=1000?d3.format('.2~s')(v):d3.format('.1f')(v);}));
+      xTitle.attr('x',margin.left+innerW/2).attr('y',height-12);
+      yTitle.attr('transform','translate(16,'+(margin.top+innerH/2)+') rotate(-90)');
+      fieldLabel.attr('x',margin.left).attr('y',18).text(width<450?'Gray: F(x) − x directions':'Gray arrows: direction of F(x) − x');
+      const samples=[];
+      const cols=width<450?5:8,rows=6;
+      for(let a=0;a<cols;a++)for(let b=0;b<rows;b++) {
+        const px=margin.left+(a+.5)*innerW/cols,py=margin.top+(b+.5)*innerH/rows;
+        const v=[sx.invert(px),sy.invert(py)],f=F(v),dx=sx(f[0])-px,dy=sy(f[1])-py,len=Math.hypot(dx,dy);
+        if(Number.isFinite(len)&&len>1e-6){const h=Math.min(18,len*.15);samples.push({x:px-dx/len*h*.5,y:py-dy/len*h*.5,x2:px+dx/len*h*.5,y2:py+dy/len*h*.5});}
+      }
+      field.selectAll('line').data(samples).join('line').attr('x1',function(d){return d.x;}).attr('y1',function(d){return d.y;}).attr('x2',function(d){return d.x2;}).attr('y2',function(d){return d.y2;}).attr('stroke','var(--muted-foreground)').attr('stroke-width',1).attr('opacity',.28).attr('marker-end','url(#gp-arrow-field)');
+      const line=d3.line().x(function(d){return sx(d[0]);}).y(function(d){return sy(d[1]);});
+      const groups=seriesGroup.selectAll('g.gp-series').data(['truth','current','next'],function(d){return d;}).join(function(enter){const g=enter.append('g').attr('class','gp-series');g.append('path').attr('class','gp-trajectory');g.append('g').attr('class','gp-dots');return g;});
+      groups.each(function(name){
+        const g=d3.select(this).attr('display',state.visible[name]&&!(snapshot.failure&&name==='next')?null:'none');
+        const p=g.select('.gp-trajectory').attr('fill','none').attr('stroke',colors[name]).attr('stroke-width',name==='next'?2:1.5).attr('stroke-dasharray',name==='current'?'6 4':name==='truth'?'2 4':null);
+        p.interrupt().transition().duration(dur).attr('d',line(data[name]));
+        const symbol=name==='current'?d3.symbolSquare:name==='truth'?d3.symbolDiamond:d3.symbolCircle;
+        const dots=g.select('.gp-dots').selectAll('path').data(data[name].map(function(v,k){return {v:v,k:v[2]};}),function(d){return d.k;}).join('path')
+          .attr('d',d3.symbol().type(symbol).size(name==='truth'?23:29)).attr('fill',name==='next'?colors[name]:'var(--background)').attr('stroke',colors[name]).attr('stroke-width',1.3);
+        dots.interrupt().transition().duration(dur).attr('transform',function(d){return 'translate('+sx(d.v[0])+','+sy(d.v[1])+')';});
+      });
+      const corrections=current.map(function(p,k){return {p:p,q:next[k],k:p[2]};}).filter(function(d){return d.k>0&&Math.hypot(sx(d.p[0])-sx(d.q[0]),sy(d.p[1])-sy(d.q[1]))>2;});
+      correctionGroup.attr('display',state.visible.corrections?null:'none').selectAll('line').data(corrections,function(d){return d.k;}).join('line').attr('stroke',colors.corrections).attr('stroke-width',1).attr('opacity',.28).attr('marker-end','url(#gp-arrow-corrections)').interrupt().transition().duration(dur)
+        .attr('x1',function(d){return sx(d.p[0]);}).attr('y1',function(d){return sy(d.p[1]);}).attr('x2',function(d){return sx(d.q[0]);}).attr('y2',function(d){return sy(d.q[1]);});
+      const k=state.k,a=snapshot.selected.current,b=snapshot.selected.next,dist=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      selectedGroup.selectAll('*').remove();labels.selectAll('*').remove();
+      if(state.visible.truth) selectedGroup.append('line').attr('x1',sx(snapshot.selected.previousTruth[0])).attr('y1',sy(snapshot.selected.previousTruth[1])).attr('x2',sx(snapshot.selected.truth[0])).attr('y2',sy(snapshot.selected.truth[1])).attr('stroke',colors.truth).attr('stroke-width',1.8).attr('marker-end','url(#gp-arrow-truth)');
+      if(state.visible.corrections&&baseValid&&!snapshot.failure) {
+        const f=localBase;
+        const legs=[{p:a,q:f,label:'Residual correction',color:'var(--muted-foreground)',marker:'field'}, {p:f,q:b,label:state.method==='gd'?'Next-residual gradient term':'Linearized propagation',color:colors.corrections,marker:'corrections'}];
+        legs.forEach(function(d){
+          const length=Math.hypot(sx(d.p[0])-sx(d.q[0]),sy(d.p[1])-sy(d.q[1]));
+          if(length<4)return;
+          selectedGroup.append('line').attr('x1',sx(d.p[0])).attr('y1',sy(d.p[1])).attr('x2',sx(d.q[0])).attr('y2',sy(d.q[1])).attr('stroke',d.color).attr('stroke-width',1.3).attr('stroke-dasharray','3 3').attr('marker-end','url(#gp-arrow-'+d.marker+')');
+        });
+        if(Math.hypot(sx(f[0])-sx(b[0]),sy(f[1])-sy(b[1]))>12){
+          selectedGroup.append('path').attr('d',d3.symbol().type(d3.symbolTriangle).size(55)()).attr('transform','translate('+sx(f[0])+','+sy(f[1])+')').attr('fill','var(--background)').attr('stroke',colors.corrections).attr('stroke-width',1.4);
+          const right=sx(f[0])>margin.left+innerW*.6;
+          labels.append('text').attr('x',sx(f[0])+(right?-10:10)).attr('y',sy(f[1])-10).attr('text-anchor',right?'end':'start').text(state.method==='gd'?'ξₖ − ηrₖ':'FΔt(ξₖ₋₁)');
+        }
+      }
+      if(state.visible.corrections) selectedGroup.append('line').attr('x1',sx(a[0])).attr('y1',sy(a[1])).attr('x2',sx(b[0])).attr('y2',sy(b[1])).attr('stroke',colors.corrections).attr('stroke-width',2.4).attr('marker-end',dist>1e-9?'url(#gp-arrow-corrections)':null);
+      if(state.visible.current) selectedGroup.append('circle').attr('cx',sx(a[0])).attr('cy',sy(a[1])).attr('r',6).attr('fill','none').attr('stroke',colors.current).attr('stroke-width',2);
+      if(state.visible.next) selectedGroup.append('circle').attr('cx',sx(b[0])).attr('cy',sy(b[1])).attr('r',6).attr('fill','none').attr('stroke',colors.next).attr('stroke-width',2);
+      const important=[{v:model.equilibrium,text:model.isEquilibrium?'Equilibrium e':'Reference e',dy:17},{v:x0,text:'Fixed x₀',dy:-12}];
+      important.forEach(function(d){const xx=sx(d.v[0]),right=xx>margin.left+innerW*.66;labels.append('text').attr('x',xx+(right?-9:9)).attr('y',Math.max(margin.top+14,Math.min(margin.top+innerH-6,sy(d.v[1])+d.dy))).attr('text-anchor',right?'end':'start').text(d.text);});
+      root.querySelector('#gp-details').textContent='k = '+k+' · t = '+fmt(k*state.dt)+' · current '+coords(a)+' → updated '+coords(b)+' · correction length '+fmt(dist);
+      overlay.attr('x',margin.left).attr('y',margin.top).attr('width',innerW).attr('height',innerH);
+      let hoveredK=null;
+      function nearest(event) {
+        const xy=d3.pointer(event,svg.node());let best=null;
+        Object.keys(data).forEach(function(name){if(!state.visible[name])return;data[name].forEach(function(v,k){const dd=Math.hypot(xy[0]-sx(v[0]),xy[1]-sy(v[1]));if(v[2]>0&&(!best||dd<best.dd))best={k:k,dd:dd};});});
+        return best&&best.dd<45?best.k:null;
+      }
+      function showTip(event) {
+        hoveredK=nearest(event);if(hoveredK===null){tooltip.hidden=true;return;}
+        tooltip.replaceChildren();const title=document.createElement('div');const actualK=current[hoveredK][2];title.textContent='k = '+actualK+' · t = '+fmt(actualK*state.dt);tooltip.appendChild(title);
+        Object.keys(data).forEach(function(name){if(!state.visible[name])return;const row=document.createElement('div');row.className='gp-tooltip-row';const label=document.createElement('span');label.textContent=names[name];const value=document.createElement('span');value.className='tabular-nums';value.textContent=coords(data[name][hoveredK]);row.append(label,value);tooltip.appendChild(row);});
+        tooltip.hidden=false;const br=root.getBoundingClientRect(),tr=tooltip.getBoundingClientRect();
+        tooltip.style.left=Math.max(4,Math.min(br.width-tr.width-4,event.clientX-br.left+12))+'px';
+        tooltip.style.top=Math.max(4,event.clientY-br.top-tr.height-12)+'px';
+      }
+      overlay.on('pointermove',showTip).on('pointerleave',function(){tooltip.hidden=true;}).on('click',function(event){const nearestK=nearest(event);if(nearestK!==null){state.k=current[nearestK][2];requestRun().catch(reportError);}});
+      const allLabels=svg.selectAll('.tick text,.axis-title').nodes().concat(labels.selectAll('text').nodes());
+      const tickRects=allLabels.map(function(n){return n.getBoundingClientRect();});
+      const labelNodes=labels.selectAll('text').nodes();
+      for(let p=0;p<labelNodes.length;p++)for(let q=p+1;q<labelNodes.length;q++) {
+        if(!labelNodes[p].isConnected||!labelNodes[q].isConnected)continue;
+        const a=labelNodes[p].getBoundingClientRect(),b=labelNodes[q].getBoundingClientRect();
+        if(a.left<b.right+4&&a.right+4>b.left&&a.top<b.bottom+4&&a.bottom+4>b.top){if(labelNodes[p].textContent==='FΔt(ξₖ₋₁)'||labelNodes[p].textContent==='ξₖ − ηrₖ')labelNodes[p].remove();else labelNodes[q].remove();}
+      }
+      labels.selectAll('text').each(function(){const r=this.getBoundingClientRect();if(r.left<svg.node().getBoundingClientRect().left+2||r.right>svg.node().getBoundingClientRect().right-2)d3.select(this).remove();});
+      xAxis.selectAll('.tick text').each(function(d,i,nodes){if(i===0)this.setAttribute('text-anchor','start');if(i===nodes.length-1)this.setAttribute('text-anchor','end');});
+      firstDraw=false;
+    }
+
+
+  $('method').addEventListener('change',event=>configure({method:event.target.value}).catch(reportError));
+  $('init').addEventListener('change',event=>{configure({init:event.target.value}).catch(reportError);if(event.target.value==='custom')root.querySelector('.gp-settings').open=true;});
+  const equationDrafts={discrete:[defaults.eq1,defaults.eq2],ode:['-0.5*x1 - 0.4*x2','0.4*x1 - 0.5*x2']};
+  if(state.system!=='builtin')equationDrafts[state.system]=[state.eq1,state.eq2];
+  $('eq1').value=state.eq1;$('eq2').value=state.eq2;
+  $('system').addEventListener('change',event=>{
+    if(state.system!=='builtin')equationDrafts[state.system]=[$('eq1').value,$('eq2').value];
+    const system=event.target.value,pair=equationDrafts[system]||[state.eq1,state.eq2];
+    $('eq1').value=pair[0];$('eq2').value=pair[1];$('equation-status').textContent='';
+    configure({system,eq1:pair[0],eq2:pair[1]}).catch(reportError);
+  });
+  for(const key of ['eq1','eq2'])$(key).addEventListener('input',()=>{$('equation-status').textContent='Edits pending — select Apply equations.';});
+  $('apply').addEventListener('click',()=>configure({system:$('system').value,eq1:$('eq1').value,eq2:$('eq2').value}).then(()=>{$('equation-status').textContent='Equations applied.';}).catch(reportError));
+  for(const key of Object.keys(ranges)){
+    const input=$(key);input.addEventListener('change',()=>{
+      if(!input.checkValidity()||input.value===''){reportError(new Error('Enter '+key+' between '+ranges[key][0]+' and '+ranges[key][1]+'.'));return;}
+      configure({[key]:Number(input.value)}).catch(reportError);
+    });
+  }
+  $('rho').addEventListener('input',()=>{$('rho-value').textContent=Number($('rho').value).toFixed(2);});
+  $('jump').addEventListener('change',()=>seek($('jump').value===''?NaN:Number($('jump').value)));
+  $('slider').addEventListener('input',()=>{$('slider-value').textContent=$('slider').value;$('jump').value=$('slider').value;});
+  $('slider').addEventListener('change',()=>seek(Number($('slider').value)));
+  $('back').addEventListener('click',()=>seek(Math.max(0,state.iteration-1)));
+  $('forward').addEventListener('click',()=>seek(Math.min(maxUpdate,state.iteration+1)));
+  $('reset').addEventListener('click',()=>seek(0));
+  $('stop').addEventListener('click',()=>{serial++;pending?.reject(cancelled());pending=null;worker.postMessage({type:'cancel',id:serial});});
+  $('resample').addEventListener('click',()=>configure({seed:state.seed%999999+1}).catch(reportError));
+  index.addEventListener('change',()=>{
+    if(!index.checkValidity()||index.value===''){reportError(new Error('Time index k must be an integer from 1 to '+T+'.'));return;}
+    state.k=Number(index.value);requestRun().catch(reportError);
+  });
+  root.querySelectorAll('.gp-legend button').forEach(b=>b.addEventListener('click',()=>{state.visible[b.dataset.series]=!state.visible[b.dataset.series];showSnapshot();persist();}));
+  new ResizeObserver(()=>{if(snapshot)draw(false);}).observe(plot);
+  try{model=PhaseDynamics.create({...state,x0:[state.x0x,state.x0y]});}catch(error){state={...defaults,visible:{...defaults.visible}};model=PhaseDynamics.create({...state,x0:[state.x0x,state.x0y]});reportError(error);}
+  showSnapshot();requestRun().catch(reportError);
+})();
+</script>
+</div>
+</main>
+<footer class="ppg-footer"><a href="https://github.com/lc-lab25/Parallel-Policy-Gradient">Code</a><a href="https://github.com/lc-lab25/Parallel-Policy-Gradient/blob/main/img/Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf">Paper (PDF)</a><button class="btn btn-ghost" id="ppg-reset-all" type="button">Reset all settings</button></footer>
+</div>
+<script>document.getElementById('ppg-reset-all').addEventListener('click',()=>{try{localStorage.removeItem('ppg-guess-dynamics-v1');}catch{}location.reload();});</script>
+</body>
+</html>

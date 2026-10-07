@@ -6,6 +6,17 @@
 
 This repository contains the code and numerical experiments for **“Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers.”**
 
+## Interactive demo
+
+<a href="https://lc-lab25.github.io/Parallel-Policy-Gradient/">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="img/guess_dynamics_demo_dark.png">
+    <img alt="Guess dynamics demo: one Gauss–Newton update moves a guessed trajectory toward the true closed-loop trajectory" src="img/guess_dynamics_demo_light.png">
+  </picture>
+</a>
+
+**[▶ Try it in your browser](https://lc-lab25.github.io/Parallel-Policy-Gradient/)**: step a Gauss–Newton (DEER) solver as it turns a guessed trajectory into the true closed-loop trajectory. Compare Gauss–Newton, clipped Gauss–Newton, and gradient descent, or enter your own discrete map or ODE. The demo is a single static page, [`docs/index.html`](docs/index.html).
+
 ## Main contributions
 
 - A policy-gradient formulation for discrete-time control-affine nonlinear systems, which is consistent with the deterministic policy gradient in previous work and recovers the standard LQR policy gradient as a special case.
