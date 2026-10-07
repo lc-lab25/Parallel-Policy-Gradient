@@ -13,13 +13,13 @@ This repository contains the code and numerical experiments for **[“Parallel P
 <a href="https://lc-lab25.github.io/Parallel-Policy-Gradient/">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="img/guess_dynamics_convergence_dark.gif">
-    <img alt="Animation: Gauss–Newton iterations move the guessed trajectory (orange) onto the true closed-loop trajectory (green) within five updates" src="img/guess_dynamics_convergence_light.gif">
+    <img alt="Animation: Gauss–Newton iterations move a noisy initial guess (orange) onto the true closed-loop trajectory (green) over nine updates" src="img/guess_dynamics_convergence_light.gif">
   </picture>
 </a>
 
 **[▶ Try it in your browser](https://lc-lab25.github.io/Parallel-Policy-Gradient/)**
 
-The animation runs the Gauss–Newton (DEER) state solver on the demo's built-in nonlinear system with horizon T = 18. Starting from a guess placed at the equilibrium, the iterate (orange) locks onto the true closed-loop trajectory (green). The maximum error drops 1.76 → 0.93 → 0.23 → 0.018 → 6.4×10⁻⁵ → 5.8×10⁻¹⁰ in five updates: a quadratic rate, and far fewer than the T updates allowed by the finite-step bound.
+The animation shows the Gauss–Newton (DEER) state solver on the demo's built-in nonlinear system (horizon T = 50, Δt = 0.01, ρ = 0.33, x₀ = (4, 3.8)), starting from a noisy straight-line guess from x₀ toward the equilibrium (σ = 0.05, seed 45). While the guess (orange) is far from the solution, the maximum error stays large: 7.11 → 4.93 → 5.62 → 5.58. Once it is close, convergence is quadratic: 2.23 → 0.88 → 0.073 → 3.4×10⁻⁴ → 2.3×10⁻⁹. After nine updates the guess matches the true closed-loop trajectory (green) to within 10⁻¹⁰, far fewer than the T updates allowed by the finite-step bound.
 
 In the demo you can step through each update, compare Gauss–Newton with clipped Gauss–Newton and gradient descent, or enter your own discrete map or ODE. It is a single static page, [`docs/index.html`](docs/index.html).
 
