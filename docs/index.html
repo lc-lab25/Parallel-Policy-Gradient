@@ -1080,7 +1080,7 @@ html>body{padding:0}</style>
   </style>
   <h1>Guess dynamics</h1>
   <div id="gp-subtitle">Discrete phase portrait</div>
-  <p class="ppg-lede">Companion to <a href="https://github.com/lc-lab25/Parallel-Policy-Gradient/blob/main/img/Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf"><em>Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers</em></a>. Each policy-gradient iteration first evaluates the closed-loop state trajectory in parallel. This demo shows how a Gauss–Newton (DEER) solver turns a guessed trajectory into the true one, one update at a time.</p>
+  <p class="ppg-lede">Companion to <a href="https://arxiv.org/abs/2609.14114"><em>Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers</em></a>. Each policy-gradient iteration first evaluates the closed-loop state trajectory in parallel. This demo shows how a Gauss–Newton (DEER) solver turns a guessed trajectory into the true one, one update at a time.</p>
   <div class="viz-controls">
     <label class="form-label" for="gp-system">Closed-loop dynamics
       <select id="gp-system" class="form-select"><option value="builtin">Built-in nonlinear spiral</option><option value="discrete">Custom discrete map</option><option value="ode">Custom ODE · forward Euler</option></select>
@@ -1907,7 +1907,7 @@ self.onmessage=async event=>{
 </script>
 </div>
 </main>
-<footer class="ppg-footer"><a href="https://github.com/lc-lab25/Parallel-Policy-Gradient">Code</a><a href="https://github.com/lc-lab25/Parallel-Policy-Gradient/blob/main/img/Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf">Paper (PDF)</a><button class="btn btn-ghost" id="ppg-reset-all" type="button">Reset all settings</button></footer>
+<footer class="ppg-footer"><a href="https://github.com/lc-lab25/Parallel-Policy-Gradient">Code</a><a href="https://arxiv.org/abs/2609.14114">Paper (arXiv)</a><button class="btn btn-ghost" id="ppg-reset-all" type="button">Reset all settings</button></footer>
 </div>
 <script>document.getElementById('ppg-reset-all').addEventListener('click',()=>{try{localStorage.removeItem('ppg-guess-dynamics-v1');}catch{}location.reload();});</script>
 </body>

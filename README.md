@@ -1,21 +1,27 @@
 # Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers
 
+[![arXiv](https://img.shields.io/badge/arXiv-2609.14114-b31b1b.svg)](https://arxiv.org/abs/2609.14114)
+
 | Nominal controller | Our method |
 |:---:|:---:|
 | ![Inertia-wheel pendulum unoptimized controller](img/base_croped.gif) | ![Inertia-wheel pendulum optimized by our method](img/opt_croped.gif) |
 
-This repository contains the code and numerical experiments for **“Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers.”**
+This repository contains the code and numerical experiments for **[“Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers”](https://arxiv.org/abs/2609.14114)** by An Nguyen and Leilei Cui.
 
 ## Interactive demo
 
 <a href="https://lc-lab25.github.io/Parallel-Policy-Gradient/">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="img/guess_dynamics_demo_dark.png">
-    <img alt="Guess dynamics demo: one Gauss–Newton update moves a guessed trajectory toward the true closed-loop trajectory" src="img/guess_dynamics_demo_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="img/guess_dynamics_convergence_dark.gif">
+    <img alt="Animation: Gauss–Newton iterations move a noisy initial guess (orange) onto the true closed-loop trajectory (green) over nine updates" src="img/guess_dynamics_convergence_light.gif">
   </picture>
 </a>
 
-**[▶ Try it in your browser](https://lc-lab25.github.io/Parallel-Policy-Gradient/)**: step a Gauss–Newton (DEER) solver as it turns a guessed trajectory into the true closed-loop trajectory. Compare Gauss–Newton, clipped Gauss–Newton, and gradient descent, or enter your own discrete map or ODE. The demo is a single static page, [`docs/index.html`](docs/index.html).
+**[▶ Try it in your browser](https://lc-lab25.github.io/Parallel-Policy-Gradient/)**
+
+The animation shows the Gauss–Newton (DEER) state solver on the demo's built-in nonlinear system (horizon T = 50, Δt = 0.01, ρ = 0.33, x₀ = (4, 3.8)), starting from a noisy straight-line guess from x₀ toward the equilibrium (σ = 0.05, seed 45). While the guess (orange) is far from the solution, the maximum error stays large: 7.11 → 4.93 → 5.62 → 5.58. Once it is close, convergence is quadratic: 2.23 → 0.88 → 0.073 → 3.4×10⁻⁴ → 2.3×10⁻⁹. After nine updates the guess matches the true closed-loop trajectory (green) to within 10⁻¹⁰, far fewer than the T updates allowed by the finite-step bound.
+
+In the demo you can step through each update, compare Gauss–Newton with clipped Gauss–Newton and gradient descent, or enter your own discrete map or ODE. It is a single static page, [`docs/index.html`](docs/index.html).
 
 ## Main contributions
 
@@ -70,15 +76,26 @@ python inertia_wheel_projected_deer.py
 The scripts save plots, animations, optimized parameters, and NumPy result files in their respective result directories.
 
 ## Paper
-<object data="img\Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf" type="application/pdf" width="100%" height="600px">
-    <p>This browser does not support inline PDFs. Please <a href="img\Parallel_Policy-Gradient_Methods_for_Parameter_Optimization_of_Nonlinear_Feedback_Controllers.pdf">click here to download the PDF</a>.</p>
-</object>
 
+An Nguyen and Leilei Cui, “Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers,” arXiv:2609.14114, 2026.
 
+[arXiv page](https://arxiv.org/abs/2609.14114) · [PDF](https://arxiv.org/pdf/2609.14114)
 
 ## Citation
 
-Citation information will be added after publication.
+If you use this code, please cite the paper:
+
+```bibtex
+@misc{nguyen2026parallelpolicygradientmethodsparameter,
+  title={Parallel Policy-Gradient Methods for Parameter Optimization of Nonlinear Feedback Controllers},
+  author={An Nguyen and Leilei Cui},
+  year={2026},
+  eprint={2609.14114},
+  archivePrefix={arXiv},
+  primaryClass={eess.SY},
+  url={https://arxiv.org/abs/2609.14114},
+}
+```
 
 ## License
 
